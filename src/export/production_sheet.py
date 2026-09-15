@@ -87,6 +87,31 @@ def day_menu(data, plan, d, line, order=None):
     return out
 
 
+def recipe_by_name(data, name):
+    """표기명 → 마스터 행. 별칭·보조('& ')도 찾는다."""
+    if not name:
+        return {}
+    rid = data.rid_by_rep.get(name) or data.rid_of.get(name)
+    if not rid:
+        for a in getattr(data, "alias_rows", []):
+            if a.get("alias") == name:
+                rid = a.get("recipe_id")
+                break
+    if not rid and str(name).lstrip().startswith("&"):
+        stripped = str(name).lstrip("&").strip()
+        if stripped != name:
+            return recipe_by_name(data, stripped)
+    return data.master.get(rid, {}) if rid else {}
+
+
+def allergy_label(master_row):
+    raw = (master_row or {}).get("allergy") or ""
+    if not raw or str(raw).strip() in {"0", "-", "."}:
+        return "0"
+    codes = str(raw).strip().strip(".")
+    return f".{codes}." if codes else "0"
+
+
 # ============================================================
 # 레시피북 시트 — 원본과 동일한 열 배치 (수식 오프셋이 여기에 의존)
 #   A No. / B 품목 / C 품명 / D 온라인(g) / E 급식(g)
@@ -212,9 +237,7 @@ def sheet_menu(wb, data, plan, title, line, nrec):
                 if k < len(lst):
                     nm, slot, is_side = lst[k]
                     mcell.value = nm
-                    fa = (f'INDEX(레시피북!$C$2:$I${nrec},'
-                          f'MATCH(${L(c)}{r},레시피북!$C$2:$C${nrec},0),7)')
-                    acell.value = f'=IFERROR(IF({fa}="","",{fa}),"")'
+                    acell.value = allergy_label(recipe_by_name(data, nm))
                 mcell.font = Font(name=FONT, size=9)
                 mcell.alignment = Alignment(horizontal='center', vertical='center')
                 acell.font = Font(name=FONT, size=8, bold=True)
@@ -295,21 +318,14 @@ def sheet_daily(wb, data, plan, d, nrec):
             ('글로벌\n리더스\n.\n석식', menu_a, f'{d.isoformat()} 14:30~', BLUE)]:
         start = r
         for nm, slot, is_side in items:
-            rid = data.rid_by_rep.get(nm)
-            m = data.master.get(rid, {})
+            m = recipe_by_name(data, nm)
             ws.cell(row=r, column=3, value=('' if is_side else SLOT_LABEL.get(slot, slot)))
             ws.cell(row=r, column=4, value=nm)
             ws.cell(row=r, column=5, value=m.get('weight_g') or '')
-            f_mat = (f'INDEX(레시피북!$C$2:$H${nrec},'
-                     f'MATCH($D{r},레시피북!$C$2:$C${nrec},0),6)')
-            f_alg = (f'INDEX(레시피북!$D$2:$J${nrec},'
-                     f'MATCH($D{r},레시피북!$C$2:$C${nrec},0),6)')
-            ws.cell(row=r, column=7, value=f'=IFERROR(IF({f_mat}="","",{f_mat}),"")')
-            ws.cell(row=r, column=8, value=f'=IFERROR(IF({f_alg}="","",{f_alg}),"")')
+            ws.cell(row=r, column=7, value=m.get('text') or m.get('ingredients') or '')
+            ws.cell(row=r, column=8, value=allergy_label(m) if m else '')
             ws.cell(row=r, column=9, value=ship)
-            f_memo = (f'INDEX(레시피북!$C$2:$J${nrec},'
-                      f'MATCH($D{r},레시피북!$C$2:$C${nrec},0),8)')
-            ws.cell(row=r, column=12, value=f'=IFERROR(IF({f_memo}="","",{f_memo}),"")')
+            ws.cell(row=r, column=12, value=m.get('memo') or '')
             # 제공인원 K / 총생산량 L 은 담당자 입력란
             ws.cell(row=r, column=10).fill = PatternFill('solid', fgColor=YELLOW)
             ws.cell(row=r, column=11, value=f'=IF($E{r}="","",IF($J{r}="","",$E{r}*$J{r}))')
@@ -360,10 +376,10 @@ def sheet_howto(wb, plan, fails):
         ['키즈락 식단표 초안 — 자동 생성본', '', ''],
         ['', '', ''],
         [1, '이 파일은 기존 생산일지와 동일한 구조로 자동 생성된 초안이다.', ''],
-        [2, '"레시피북" 시트가 메인 DB이며, 식단표·일자별 시트의 자재사용내역/알러지표기는', ''],
-        ['', '   원본과 같이 INDEX+MATCH 수식으로 레시피북을 참조한다.', ''],
-        [3, '메뉴명을 바꾸면 자재사용내역·알러지표기가 자동으로 따라온다.', ''],
-        ['', '   레시피북에 없는 메뉴를 적으면 빈칸이 되므로, 신메뉴는 레시피북에 먼저 등록한다.', ''],
+        [2, '"레시피북" 시트에 자재사용내역·알러지·중량이 들어 있고,', ''],
+        ['', '   식단표·일자별 시트에도 같은 값을 직접 채워 두었다. (미리보기/엑셀 앱에서 수식이 비지 않게)', ''],
+        [3, '메뉴를 바꾼 뒤에는 레시피북에서 해당 품명을 찾아 알러지·자재를 맞춰 적는다.', ''],
+        ['', '   신메뉴는 레시피북에 먼저 등록한다.', ''],
         [4, '노란색 칸(제공인원)은 담당자 입력란이다. 입력하면 총생산량이 자동 계산된다.', ''],
         [5, "'&'로 시작하는 항목은 바로 위 메뉴에 딸린 보조(소스·드레싱)이며 자리를 차지하지 않는다.", ''],
         [6, '생일파티 특식일(3주차 금요일)은 국 없이 볶음밥+스파게티+치킨+피클+디저트로 구성된다.', ''],

@@ -28,8 +28,8 @@
     </nav>
   </header>
   <p class="pub-banner hidden" id="pub-banner">
-    공개 미리보기입니다. 아래 식단표는 미리 만들어 둔 2026년 11월 초안입니다.
-    달을 바꿔 직접 다시 짜려면 저장소를 받은 뒤 <code>python -m src.web</code> 을 실행하세요.
+    휴무를 고른 뒤 <strong>이 달 초안 만들기</strong>를 누르면 이 페이지에서 바로 다시 짭니다.
+    처음 한 번은 생성 엔진을 받아 오느라 10~20초 걸릴 수 있습니다.
   </p>
 
   <main id="main">
@@ -70,8 +70,8 @@
         <div class="busy hidden" id="busy" aria-live="polite">
           <span class="spinner" aria-hidden="true"></span>
           <div>
-            <strong>한 달치를 짜는 중입니다</strong>
-            <p>레시피 로테이션과 조합 기피 룰을 적용하고 있어요. 보통 몇 초면 끝납니다.</p>
+            <strong id="busy-title">한 달치를 짜는 중입니다</strong>
+            <p id="busy-body">레시피 로테이션과 조합 기피 룰을 적용하고 있어요. 보통 몇 초면 끝납니다.</p>
           </div>
         </div>
 

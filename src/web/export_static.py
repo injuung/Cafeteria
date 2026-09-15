@@ -8,18 +8,28 @@ from __future__ import annotations
 import argparse
 import json
 import shutil
+import zipfile
 from pathlib import Path
 
 from src.config import paths
 from src.web import service
-from src.web.holidays import HOLIDAYS, month_holidays
+from src.web.holidays import HOLIDAYS
 
 STATIC = Path(__file__).resolve().parent / "static"
-DEMO_YM = "2026-11"
-VERIFY_YMS = ("2026-07", "2026-08")
 
 
-def export(out: Path, ym: str = DEMO_YM) -> Path:
+def _runtime_zip(out: Path) -> None:
+    root = paths.ROOT
+    dest = out / "py" / "runtime.zip"
+    dest.parent.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(dest, "w", zipfile.ZIP_DEFLATED) as zf:
+        for p in (root / "src").rglob("*.py"):
+            zf.write(p, p.relative_to(root).as_posix())
+        for name in ("master.json", "raw.json", "groups.json"):
+            zf.write(root / "data" / name, f"data/{name}")
+
+
+def export(out: Path) -> Path:
     out = Path(out)
     if out.exists():
         shutil.rmtree(out)
@@ -28,11 +38,10 @@ def export(out: Path, ym: str = DEMO_YM) -> Path:
     (out / ".nojekyll").write_text("", encoding="utf-8")
 
     shutil.copy(STATIC / "index.html", out / "index.html")
-    shutil.copy(STATIC / "styles.css", out / "static" / "styles.css")
-    shutil.copy(STATIC / "app.js", out / "static" / "app.js")
+    for name in ("styles.css", "app.js", "py-worker.js"):
+        shutil.copy(STATIC / name, out / "static" / name)
 
     meta = service.meta()
-    meta["default_ym"] = ym
     meta["static"] = True
     (out / "data" / "meta.json").write_text(
         json.dumps(meta, ensure_ascii=False, indent=2), encoding="utf-8"
@@ -44,30 +53,15 @@ def export(out: Path, ym: str = DEMO_YM) -> Path:
     (out / "data" / "holidays.json").write_text(
         json.dumps(HOLIDAYS, ensure_ascii=False, indent=2), encoding="utf-8"
     )
-
-    hol = [h["date"] for h in month_holidays(ym)]
-    plan = service.generate_plan(ym, hol)
-    plan["download"] = f"data/plan_{ym}.xlsx"
-    (out / "data" / "plan.json").write_text(
-        json.dumps(plan, ensure_ascii=False), encoding="utf-8"
-    )
-    src_xlsx = paths.OUTPUT_DIR / f"plan_{ym}.xlsx"
-    if src_xlsx.exists():
-        shutil.copy(src_xlsx, out / "data" / f"plan_{ym}.xlsx")
-
-    verify = {vym: service.verify(vym) for vym in VERIFY_YMS}
-    (out / "data" / "verify.json").write_text(
-        json.dumps(verify, ensure_ascii=False, indent=2), encoding="utf-8"
-    )
+    _runtime_zip(out)
     return out
 
 
 def main(argv=None) -> int:
     p = argparse.ArgumentParser()
     p.add_argument("--out", default="site")
-    p.add_argument("--ym", default=DEMO_YM)
     args = p.parse_args(argv)
-    dest = export(Path(args.out), args.ym)
+    dest = export(Path(args.out))
     print(f"정적 사이트: {dest.resolve()}")
     return 0
 

@@ -70,7 +70,7 @@ python -m src.web
 
 https://injuung.github.io/Cafeteria/
 
-이 주소는 미리 만들어 둔 초안을 보여 주는 정적 페이지다. `main` 에 푸시하면 GitHub Actions 가 사이트를 다시 올린다.
+휴무를 고르고 초안을 만드는 것은 이 주소에서도 된다. 처음 생성 때 브라우저에 엔진을 받느라 조금 걸릴 수 있다. `main` 에 푸시하면 GitHub Actions 가 사이트를 다시 올린다.
 
 명령줄:
 

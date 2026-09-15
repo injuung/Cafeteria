@@ -60,14 +60,78 @@ async function staticGet(url, opts = {}) {
     return calendarView(q.get("ym"), hol);
   }
   if (url.startsWith("/api/plan") || (method === "POST" && url.includes("plan"))) {
-    return readJson("data/plan.json");
+    const body = JSON.parse(opts.body || "{}");
+    const res = await pyCall({ type: "plan", ym: body.ym, holidays: body.holidays || [] });
+    const plan = JSON.parse(res.json);
+    if (res.xlsx) {
+      if (state.xlsxUrl) URL.revokeObjectURL(state.xlsxUrl);
+      state.xlsxUrl = URL.createObjectURL(new Blob([res.xlsx], {
+        type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+      }));
+      plan.download = state.xlsxUrl;
+    }
+    return plan;
   }
   if (url.includes("/api/verify")) {
     const ym = JSON.parse(opts.body || "{}").ym;
-    const all = await readJson("data/verify.json");
-    return all[ym] || { ym, empty: true, message: `${ym}에는 미리 만들어 둔 재현 결과가 없습니다.` };
+    const res = await pyCall({ type: "verify", ym });
+    return JSON.parse(res.json);
   }
   throw new Error("정적 페이지에서 처리할 수 없는 요청입니다.");
+}
+
+let pyWorker = null;
+let pyReady = null;
+let pyReq = 0;
+
+function setBusyText(title, body) {
+  const t = $("busy-title");
+  const b = $("busy-body");
+  if (t) t.textContent = title;
+  if (b) b.textContent = body;
+}
+
+function ensurePyWorker() {
+  if (pyWorker) return pyReady;
+  pyWorker = new Worker("static/py-worker.js");
+  pyReady = new Promise((resolve, reject) => {
+    const onMsg = (e) => {
+      if (e.data.type === "progress") {
+        setBusyText(e.data.message, "잠시만 기다려 주세요.");
+        return;
+      }
+      if (e.data.type === "ready") {
+        pyWorker.removeEventListener("message", onMsg);
+        resolve();
+        return;
+      }
+      if (e.data.type === "error" && e.data.id == null) {
+        pyWorker.removeEventListener("message", onMsg);
+        reject(new Error(e.data.message));
+      }
+    };
+    pyWorker.addEventListener("message", onMsg);
+    pyWorker.postMessage({ type: "init" });
+  });
+  return pyReady;
+}
+
+function pyCall(payload) {
+  return ensurePyWorker().then(() => new Promise((resolve, reject) => {
+    const id = ++pyReq;
+    const onMsg = (e) => {
+      if (e.data.type === "progress") {
+        setBusyText(e.data.message, "레시피 로테이션과 조합 기피 룰을 적용하고 있어요.");
+        return;
+      }
+      if (e.data.id !== id) return;
+      pyWorker.removeEventListener("message", onMsg);
+      if (e.data.type === "error") reject(new Error(e.data.message));
+      else resolve(e.data);
+    };
+    pyWorker.addEventListener("message", onMsg);
+    pyWorker.postMessage({ id, ...payload });
+  }));
 }
 
 function nthWeekday(dt) {
@@ -246,7 +310,11 @@ async function generate() {
   $("empty").classList.add("hidden");
   $("result").classList.add("hidden");
   $("busy").classList.remove("hidden");
-  $("status-line").textContent = "한 달치를 짜는 중…";
+  $("status-line").textContent = !LIVE
+    ? "생성 엔진을 준비한 뒤 한 달치를 짭니다. 처음에는 조금 걸립니다."
+    : "한 달치를 짜는 중…";
+  if (!LIVE) setBusyText("생성 엔진을 준비하는 중", "처음 한 번은 브라우저에 파이썬을 불러옵니다.");
+  else setBusyText("한 달치를 짜는 중입니다", "레시피 로테이션과 조합 기피 룰을 적용하고 있어요. 보통 몇 초면 끝납니다.");
   try {
     const plan = await getJson("/api/plan", {
       method: "POST",
@@ -255,10 +323,8 @@ async function generate() {
     });
     state.plan = plan;
     renderResult();
-    $("status-line").textContent = LIVE
-      ? "초안이 준비됐습니다. 엑셀을 받아 담당자가 손보면 됩니다."
-      : "미리 만들어 둔 초안입니다. 엑셀도 같이 받을 수 있습니다.";
-    $("generate").textContent = LIVE ? "다시 만들기" : "초안 다시 보기";
+    $("status-line").textContent = "초안이 준비됐습니다. 엑셀을 받아 담당자가 손보면 됩니다.";
+    $("generate").textContent = "다시 만들기";
   } catch (err) {
     $("empty").classList.remove("hidden");
     $("status-line").textContent = `만들지 못했습니다. ${err.message}`;
@@ -475,7 +541,6 @@ async function boot() {
   if (!LIVE) {
     state.holidayNames = await readJson("data/holidays.json");
     $("pub-banner").classList.remove("hidden");
-    $("generate").textContent = "초안 보기";
   }
   state.meta = await getJson("/api/meta");
   state.ym = state.meta.default_ym;
@@ -501,7 +566,6 @@ async function boot() {
     };
   });
   bindTip();
-  if (!LIVE) await generate();
 }
 
 async function resetMonth() {

@@ -5,3 +5,4 @@ __pycache__/
 
 # 생성물 — 명령으로 언제든 다시 만들 수 있다
 output/*.xlsx
+site/

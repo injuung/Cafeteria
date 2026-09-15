@@ -1,0 +1,122 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>키즈락 식단표</title>
+  <link rel="preconnect" href="https://cdn.jsdelivr.net">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/gh/orioncactus/pretendard@v1.3.9/dist/web/variable/pretendardvariable-dynamic-subset.min.css">
+  <link rel="stylesheet" href="static/styles.css">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect width='32' height='32' rx='8' fill='%232C6A4A'/%3E%3Cpath fill='%23F4EFE6' d='M8 14h16v10a3 3 0 0 1-3 3H11a3 3 0 0 1-3-3V14zm2-3a6 6 0 0 1 12 0H10z'/%3E%3C/svg%3E">
+</head>
+<body>
+  <a class="skip" href="#main">본문으로 건너뛰기</a>
+  <header class="top">
+    <div class="brand">
+      <span class="mark" aria-hidden="true">
+        <svg viewBox="0 0 32 32" width="28" height="28"><rect width="32" height="32" rx="8" fill="currentColor"/><path fill="#F4EFE6" d="M8 14h16v10a3 3 0 0 1-3 3H11a3 3 0 0 1-3-3V14zm2-3a6 6 0 0 1 12 0H10z"/></svg>
+      </span>
+      <div>
+        <strong>키즈락 식단표</strong>
+        <span>더바른푸드 · 월별 초안</span>
+      </div>
+    </div>
+    <nav class="tabs" role="tablist" aria-label="화면">
+      <button type="button" role="tab" id="tab-plan" aria-selected="true" data-tab="plan">초안 만들기</button>
+      <button type="button" role="tab" id="tab-rules" aria-selected="false" data-tab="rules">조합 룰</button>
+      <button type="button" role="tab" id="tab-verify" aria-selected="false" data-tab="verify">재현 테스트</button>
+    </nav>
+  </header>
+  <p class="pub-banner hidden" id="pub-banner">
+    공개 미리보기입니다. 아래 식단표는 미리 만들어 둔 2026년 11월 초안입니다.
+    달을 바꿔 직접 다시 짜려면 저장소를 받은 뒤 <code>python -m src.web</code> 을 실행하세요.
+  </p>
+
+  <main id="main">
+    <section class="panel" id="view-plan" role="tabpanel" aria-labelledby="tab-plan">
+      <aside class="composer" aria-label="생성 설정">
+        <div class="month-head">
+          <button type="button" class="icon-btn" id="prev-month" aria-label="이전 달">‹</button>
+          <h1 id="month-label">2026년 10월</h1>
+          <button type="button" class="icon-btn" id="next-month" aria-label="다음 달">›</button>
+        </div>
+        <p class="hint">평일을 누르면 휴무로 빠집니다. 주말과 공휴일은 이미 빠져 있습니다.</p>
+        <div class="cal" id="calendar" aria-label="월 달력"></div>
+        <dl class="counts">
+          <div><dt>영업일</dt><dd id="biz-count">–</dd></div>
+          <div><dt>휴무</dt><dd id="hol-count">–</dd></div>
+          <div><dt>특식</dt><dd id="feast-count">–</dd></div>
+        </dl>
+        <button type="button" class="primary" id="generate">
+          이 달 초안 만들기
+        </button>
+        <p class="fine" id="status-line">14개월 이력과 조합 룰로 60~70점 초안을 만듭니다. 담당자가 손보면 됩니다.</p>
+      </aside>
+
+      <div class="stage" id="stage">
+        <div class="empty" id="empty">
+          <svg viewBox="0 0 120 88" width="120" height="88" aria-hidden="true">
+            <rect x="8" y="28" width="104" height="52" rx="10" fill="#E8DFD0"/>
+            <rect x="18" y="38" width="28" height="32" rx="6" fill="#2C6A4A"/>
+            <rect x="52" y="38" width="24" height="18" rx="5" fill="#D4652F"/>
+            <rect x="80" y="38" width="22" height="18" rx="5" fill="#C9A227"/>
+            <rect x="52" y="60" width="50" height="10" rx="5" fill="#FFFDF8"/>
+            <ellipse cx="60" cy="22" rx="18" ry="8" fill="#F4EFE6" stroke="#C9B8A0"/>
+          </svg>
+          <h2>달을 고르고 초안을 만들어 보세요</h2>
+          <p>왼쪽 달력에서 휴무만 확인한 다음, <em>이 달 초안 만들기</em>를 누르면 유아식·성인식이 같이 나옵니다.</p>
+        </div>
+
+        <div class="busy hidden" id="busy" aria-live="polite">
+          <span class="spinner" aria-hidden="true"></span>
+          <div>
+            <strong>한 달치를 짜는 중입니다</strong>
+            <p>레시피 로테이션과 조합 기피 룰을 적용하고 있어요. 보통 몇 초면 끝납니다.</p>
+          </div>
+        </div>
+
+        <div class="result hidden" id="result">
+          <div class="result-bar">
+            <div class="chips" id="chips"></div>
+            <div class="result-actions">
+              <div class="seg" role="group" aria-label="식단표 시트">
+                <button type="button" class="seg-btn on" data-line="kid">유아식단표</button>
+                <button type="button" class="seg-btn" data-line="adult">글로벌리더스&amp;석식식단표</button>
+              </div>
+              <a class="download" id="download" href="#">엑셀 받기</a>
+            </div>
+          </div>
+          <div class="banner hidden" id="fail-banner"></div>
+          <div class="sheet-wrap" id="weeks"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="panel hidden" id="view-rules" role="tabpanel" aria-labelledby="tab-rules" hidden>
+      <header class="page-head">
+        <h1>조합 기피 룰</h1>
+        <p>1년치 실제 편성에서 기대값 대비 한 번도 나오지 않은 조합만 올렸습니다. 금지는 후보에서 빼고, 감점은 점수만 깎습니다.</p>
+      </header>
+      <div class="rules" id="rules"></div>
+    </section>
+
+    <section class="panel hidden" id="view-verify" role="tabpanel" aria-labelledby="tab-verify" hidden>
+      <header class="page-head">
+        <h1>재현 테스트</h1>
+        <p>과거 달에 같은 규칙을 돌려, 실제 편성과 얼마나 같은 메뉴 풀을 썼는지 봅니다.</p>
+      </header>
+      <div class="verify-row">
+        <label>
+          대조할 달
+          <select id="verify-month"></select>
+        </label>
+        <button type="button" class="primary slim" id="run-verify">돌려 보기</button>
+      </div>
+      <div id="verify-out"></div>
+    </section>
+  </main>
+
+  <div class="tip" id="tip" hidden></div>
+  <script src="static/app.js"></script>
+</body>
+</html>

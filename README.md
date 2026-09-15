@@ -9,6 +9,7 @@
 ```
 src/
 ├─ main.py                     CLI 진입점
+├─ web/                        브라우저 화면 (python -m src.web)
 ├─ config/
 │   ├─ paths.py                경로 정의 (여기 한 곳만 고치면 된다)
 │   └─ constants.py            업무규칙 상수 — 값마다 출처 태그
@@ -55,6 +56,23 @@ pip install -r requirements.txt
 자세한 건 `data/README.md` 참고.
 
 ## 사용
+
+웹 화면(달력에서 휴무를 고르고 초안을 만든 뒤 엑셀로 받음):
+
+```bash
+pip install -r requirements.txt
+python -m src.web
+```
+
+브라우저에서 http://127.0.0.1:8000 을 연다. 이 컴퓨터에서만 열린다.
+
+남에게 보여줄 공개 주소(GitHub Pages):
+
+https://injuung.github.io/Cafeteria/
+
+이 주소는 미리 만들어 둔 초안을 보여 주는 정적 페이지다. `main` 에 푸시하면 GitHub Actions 가 사이트를 다시 올린다.
+
+명령줄:
 
 ```bash
 python -m src.main pipeline          # 원천 엑셀 → data/master.json (재생성용, 이미 들어 있음)

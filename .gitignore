@@ -3,10 +3,5 @@ __pycache__/
 .venv/
 .DS_Store
 
-# 원천·중간 데이터는 고객사 자료라 추적하지 않는다
-data/생산일지/
-data/식단표/
-data/*.json
-
-# 생성물
+# 생성물 — 명령으로 언제든 다시 만들 수 있다
 output/*.xlsx
